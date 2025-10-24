@@ -97,7 +97,7 @@ def generateSchedule(tasks, start, availableMinutes, lastDay=None):\
         lastDay = max(t.due for t in tasks)
 
     #finding available time
-    dailyAmount = floor(availableMinutes, lastDay)
+    dailyAmount = floor(availableMinutes / CHUNK_SIZE)
     if dailyAmount <= 0:
         return {}, ["Not enough available time (<15 minutes)"]
     
@@ -124,20 +124,76 @@ def generateSchedule(tasks, start, availableMinutes, lastDay=None):\
 
     while current <= lastDay:
         dailyPlan = []
+        timeRemaining = dailyAmount
+
+        eligible = [t for t in tasks if t.remaining > 0 and t.due >= d]
+
+        required = {}
+        for t in eligible:
+            daysLeft = max(1, (t.due - current).days + 1)
+            neededToday = ceil(t.remaining / daysLeft)
+            take = min(neededToday, t.remaining, timeRemaining)
+
+            if take > 0 and take < t.min_chunk and timeRemaining >= t.min_chunk and t.remaining >= t.min_chunk:
+                take = t.min_chunk
+            if take > 0:
+                required[t] = take
+                remainingTime -= take
+
+        for t, take in required.items():
+            t.remaining -= take
+            dailyPlan.append((t.name, take))
+
+        if timeRemaining > 0:
+            elig2 = [t for t in tasks if t.remaining > 0 and t.due >= current]
+            
+            if elig2:
+                weights = []
+                for t in elig2:
+                    daysLeft = max(1, (t.due - current).days + 1)
+                    urgency = 1.0 / daysLeft
+                    weights.append((t, t.priority * urgency))
+                totalW = sum(w for _, w in weights) or 1.0
+
+                while timeRemaining > 0 and any(t.remaining > 0 for t in elig2):
+                    t = max((t for t, w in weights if t.remaining > 0), key=lambda x: next(w for tt, w in weights if tt is x))
+                    take = min(max(1, t.min_chunk), t.remaining, timeRemaining)
+                    take = min(take, timeRemaining)
+                    
+                    if take <= 0:
+                        break
+                    t.remaining -= take
+                    timeRemaining -= take
+                    dailyPlan.append((t.name, take))
+
+        merged = []
+        for name, chunks in dailyPlan:
+            if merged and merged[-1][0] == name:
+                merged[-1] = (name, merged[-1][1] + chunks)
+            else:
+                merged.append((name, chunks))
+        schedule[current] = merged
+
+        current += timedelta(days=1)
+    return schedule, warnings
 
 
+tasks = [
+    Task("Project Report", date(2025, 11, 5), work_minutes=330, priority=3),
+    Task("Study Algebra", date(2025, 11, 2), work_minutes=180, priority=2),
+    Task("Email Cleanup", date(2025, 11, 1), work_minutes=45, priority=1, min_chunk_minutes=15),
+]
 
+schedule, warnings = generateSchedule(
+    tasks=tasks,
+    start=date.today(),
+    availableMinutes = 180  # e.g., 3 hours/day
+)
 
-# calendar = Calendar()
-# calendar.addTask("helo", "work")
-# calendar.viewTasks()
+for w in warnings:
+    print("Warning:", w)
 
-
-# def sortByPriority():
-
-
-
-# def main():
-#     calendar = Calendar()
-#     calendar.addTask("test")
-# main()
+for day, plan in schedule.items():
+    # print day and each block in 15-minute units
+    slots = [f"{name} x {chunks*15}min" for name, chunks in plan]
+    print(day, "->", ", ".join(slots) if slots else "FREE")
