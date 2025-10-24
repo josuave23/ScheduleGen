@@ -24,22 +24,6 @@ START:
 
 
 """
-
-# import event
-# import transcriber
-
-# import calendar
-# import tkinter
-
-# class testCalendar(calendar.Calendar):
-#     def formatMonth(self, year, month):
-#         dates = self.monthdatescalendar(year, month)
-    
-
-
-# def main():
-#     pass
-# main()
 from  datetime import date, timedelta
 from math import ceil, floor
 
@@ -72,34 +56,34 @@ class Task():
             f"p={self.priority}, desc='{self.desc[:20]}...')"
         )
     
-class Calendar:
-    def __init__(self):
-        self.tasks = []
+# class Calendar:
+#     def __init__(self):
+#         self.tasks = []
 
-    def addTask(self, title, desc, year=None, month=None, day=None, wTime=None):
-        dueDate = None
-        if year and month and day:
-            try:
-                dueDate = datetime.date(year, month, day)
-            except ValueError:
-                print("Invalid date provided")
-                return
-        task = Task(title, desc, dueDate, wTime)
-        self.tasks.append(task)
-        print(f"Task '{desc}' added")
+#     def addTask(self, title, desc, year=None, month=None, day=None, wTime=None):
+#         dueDate = None
+#         if year and month and day:
+#             try:
+#                 dueDate = datetime.date(year, month, day)
+#             except ValueError:
+#                 print("Invalid date provided")
+#                 return
+#         task = Task(title, desc, dueDate, wTime)
+#         self.tasks.append(task)
+#         print(f"Task '{desc}' added")
 
-    def viewTasks(self, date=None):
-        for task in self.tasks:
-            if date is not None:
-                if task.due == date:
-                    print(task)
-            else:
-                print(task)
+#     def viewTasks(self, date=None):
+#         for task in self.tasks:
+#             if date is not None:
+#                 if task.due == date:
+#                     print(task)
+#             else:
+#                 print(task)
 
-    def removeTask(self, name):
-        for task in self.tasks:
-            if task.name == name:
-                self.tasks.remove(task)
+#     def removeTask(self, name):
+#         for task in self.tasks:
+#             if task.name == name:
+#                 self.tasks.remove(task)
 
     # def updateTask(self, name):
     #     # UPDATE: Add a try catch statement to make this more robust
@@ -107,7 +91,40 @@ class Calendar:
     #     dateStrings = nDate.split("-")
 
 
-def generateSchedule(tasks, start, availableMinutes, lastDay=None):
+def generateSchedule(tasks, start, availableMinutes, lastDay=None):\
+
+    if lastDay is None:
+        lastDay = max(t.due for t in tasks)
+
+    #finding available time
+    dailyAmount = floor(availableMinutes, lastDay)
+    if dailyAmount <= 0:
+        return {}, ["Not enough available time (<15 minutes)"]
+    
+    #feasible check
+
+    warnings = []
+    sortedTasks = sorted(tasks, key=lambda t: t.due)
+    for t in sortedTasks:
+        remainingTime = 0
+        current = start
+        while current <= t.due:
+            remainingTime += dailyAmount
+            current += timedelta(days=1)
+        requiredTime = sum(x.remaining for x in sortedTasks if x.due <= t.due)
+        if requiredTime > remainingTime:
+            warnings.append(
+                f"Infeasible by {t.due}: need {requiredTime*CHUNK_SIZE} minutes, "
+                f"capacity {remainingTime*CHUNK_SIZE} minutes (shortfall {(requiredTime - remainingTime)*CHUNK_SIZE} minutes)"
+            )
+            break
+
+    schedule = {}
+    current = start
+
+    while current <= lastDay:
+        dailyPlan = []
+
 
 
 
