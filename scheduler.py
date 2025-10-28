@@ -23,7 +23,16 @@ START:
     - Return the schedule
 
 
+NOTES:
+- Implement the Blackout feature
+    - Also implement a way to give breaks at regular intervals
+- check whether dailyAmount is working properly
+- make a more intuitive list format    
+    
 """
+
+
+
 from  datetime import date, timedelta
 from math import ceil, floor
 
@@ -55,44 +64,12 @@ class Task():
             f"{self.name}(rem={self.remaining}, due={self.due}, "
             f"p={self.priority}, desc='{self.desc[:20]}...')"
         )
-    
-# class Calendar:
-#     def __init__(self):
-#         self.tasks = []
-
-#     def addTask(self, title, desc, year=None, month=None, day=None, wTime=None):
-#         dueDate = None
-#         if year and month and day:
-#             try:
-#                 dueDate = datetime.date(year, month, day)
-#             except ValueError:
-#                 print("Invalid date provided")
-#                 return
-#         task = Task(title, desc, dueDate, wTime)
-#         self.tasks.append(task)
-#         print(f"Task '{desc}' added")
-
-#     def viewTasks(self, date=None):
-#         for task in self.tasks:
-#             if date is not None:
-#                 if task.due == date:
-#                     print(task)
-#             else:
-#                 print(task)
-
-#     def removeTask(self, name):
-#         for task in self.tasks:
-#             if task.name == name:
-#                 self.tasks.remove(task)
-
-    # def updateTask(self, name):
-    #     # UPDATE: Add a try catch statement to make this more robust
-    #     nDate = input("Enter the new due date in MM-DD-YYYY format: ")
-    #     dateStrings = nDate.split("-")
 
 
 def generateSchedule(tasks, start, availableMinutes, lastDay=None):\
-
+    #LOGIC FIX-------(Maybe)----------------------------------------------------
+    #dailyAmount is being treated as the entire available time for the whole week
+    #I should change that to either be the daily amount available or to be the whole week
     if lastDay is None:
         lastDay = max(t.due for t in tasks)
 
@@ -126,7 +103,7 @@ def generateSchedule(tasks, start, availableMinutes, lastDay=None):\
         dailyPlan = []
         timeRemaining = dailyAmount
 
-        eligible = [t for t in tasks if t.remaining > 0 and t.due >= d]
+        eligible = [t for t in tasks if t.remaining > 0 and t.due >= start]
 
         required = {}
         for t in eligible:
@@ -178,22 +155,33 @@ def generateSchedule(tasks, start, availableMinutes, lastDay=None):\
     return schedule, warnings
 
 
-tasks = [
-    Task("Project Report", date(2025, 11, 5), work_minutes=330, priority=3),
-    Task("Study Algebra", date(2025, 11, 2), work_minutes=180, priority=2),
-    Task("Email Cleanup", date(2025, 11, 1), work_minutes=45, priority=1, min_chunk_minutes=15),
-]
-
-schedule, warnings = generateSchedule(
+def main():
+    tasks = []
+    #blackout time has not been implemented yet
+    blackout = input("How much break time do you want each day? (enter in minutes): ")
+    totalTime = input("Enter how much time you want to work per day (enter in minutes): ")
+    newTask = input("Please enter your first task to do (Name, YYYY-MM-DD, time in minutes, priority): ")
+    while newTask != "0":
+        hold = newTask.split(",")
+        dateList = hold[1].split("-")
+        tasks.append(Task(hold[0], date(int(dateList[0]), int(dateList[1]), int(dateList[2])), int(hold[2]), int(hold[3])))
+        newTask = input("Enter another task (type 0 to finish): ")
+    
+    schedule, warnings = generateSchedule(
     tasks=tasks,
     start=date.today(),
-    availableMinutes = 180  # e.g., 3 hours/day
-)
+    availableMinutes = int(totalTime)
+    )
 
-for w in warnings:
-    print("Warning:", w)
+    for w in warnings:
+        print("Warning:", w)
 
-for day, plan in schedule.items():
-    # print day and each block in 15-minute units
-    slots = [f"{name} x {chunks*15}min" for name, chunks in plan]
-    print(day, "->", ", ".join(slots) if slots else "FREE")
+    for day, plan in schedule.items():
+        # print day and each block in 15-minute units
+        slots = [f"{name} x {chunks*15}min" for name, chunks in plan]
+        print(day, "->", ", ".join(slots) if slots else "FREE")
+
+    
+
+
+main()
