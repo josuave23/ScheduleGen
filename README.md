@@ -9,6 +9,7 @@ This will be able to take an input of tasks from the user and create a balanced 
 
 ## To Do:
 ### Short term
+- Make code more robust and crash-proof
 - Debug the current iteration
 - Optimize current code
 - Add Canvas and Google calendar API
