@@ -39,7 +39,7 @@ class Schedule():
                 if slot[0] >= b["start"] and slot[0] < b["end"]:
                     slot[1] = False
                     
-    def blockEvents(self, events):
+    def blockEvents(self, events): #This might be a reason for not going past 24 hours\/
         for event in events:
             for i in range(len(self.timeline)):
                 if self.timeline[i][0] >= event["start"] and self.timeline[i][0] < event["end"]:
@@ -62,7 +62,7 @@ class Schedule():
                 return i
         return None #error that not enought slots
 
-    def findLatestSlot(self, slotsNeeded, deadline):
+    def findLatestSlot(self, slotsNeeded, deadline): #Fix this, the first for loop is weird. Break after else statement makes it redundant
         deadlineIdx = 0
         for i in range(len(self.timeline)):
             if self.timeline[i][0] <= deadline:
