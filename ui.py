@@ -32,8 +32,7 @@ FONT_MONO    = ("Courier New", 12)
 class App(ctk.CTk):
     def __init__(self, fg_color=None, **kwargs):
         super().__init__(fg_color, **kwargs)
-        self.calService = getService()
-        self.calEvents  = getEvents(self.calService)
+        
 
         self.tasks       = []
         self.timeline    = []
@@ -46,6 +45,9 @@ class App(ctk.CTk):
         self.dayEnd           = ctk.StringVar(value="22:00")
         self.slotSize         = ctk.IntVar(value=30)
         self.numDays          = ctk.IntVar(value=7)
+
+        self.calService = getService()
+        self.calEvents  = getEvents(self.calService, self.numDays.get())#CHANGED: moved from line 35 down here, I think if i change the datatype to int it might work
 
         self.title("Timestop")
         self.geometry("1360x768")
@@ -177,24 +179,75 @@ class App(ctk.CTk):
         elif view == "settings":
             self.displaySettings()
 
+    # ─── Calendar Refresh ───────────────────────────────────────────
+    def refreshCalendar(self):
+        self.calEvents = getEvents(self.calService, self.numDays.get())
+        self.switchView("schedule")
+
     # ─── SCHEDULE VIEW ───────────────────────────────────────────
     def displaySchedule(self):
+        self.refresh = ctk.CTkButton(self.contentFrame, text="Refresh", 
+                                width=110, height=36, font=FONT_SMALL, 
+                                corner_radius=8, fg_color="transparent", 
+                                border_width=1, border_color=ACCENT, 
+                                hover_color=ACCENT_DIM, text_color=ACCENT, 
+                                command=self.refreshCalendar)
+        self.refresh.pack(anchor="nw", padx=(20,0), pady=(10,0))
         if not self.timeline and not self.calEvents:
             self._emptyState("No schedule yet",
                              "Add tasks and click 'Generate Schedule' to get started.")
             return
 
+        # if self.calEvents:
+        #     self._sectionLabel("Blocked from Google Calendar")
+        #     for event in self.calEvents:
+        #         timeStr = event["start"].strftime("%I:%M %p") + "  →  " + event["end"].strftime("%I:%M %p")
+        #         row = ctk.CTkFrame(self.contentFrame, fg_color="#0d1f3c", corner_radius=10)
+        #         row.pack(fill="x", padx=20, pady=3)
+        #         ctk.CTkLabel(row, text=timeStr, font=FONT_MONO,
+        #                      text_color=SOFT_TEXT, width=200).pack(side="left", padx=16, pady=10)
+        #         #ctk.CTkFrame(row, width=1, fg_color=DIVIDER).pack(side="left", fill="y", pady=8)   --- This might be unneccesary, Would also like to add additional labels with the date of task
+        #         ctk.CTkLabel(row, text=event["title"], font=FONT_BODY,
+        #                      text_color=TEXT_SECONDARY).pack(side="left", padx=16)
+
         if self.calEvents:
             self._sectionLabel("Blocked from Google Calendar")
+
+            from datetime import date as dateType
+            today = dateType.today()
+
+            # group events by date
+            eventsByDay = {}
             for event in self.calEvents:
-                timeStr = event["start"].strftime("%I:%M %p") + "  →  " + event["end"].strftime("%I:%M %p")
-                row = ctk.CTkFrame(self.contentFrame, fg_color="#0d1f3c", corner_radius=10)
-                row.pack(fill="x", padx=20, pady=3)
-                ctk.CTkLabel(row, text=timeStr, font=FONT_MONO,
-                             text_color=SOFT_TEXT, width=200).pack(side="left", padx=16, pady=10)
-                ctk.CTkFrame(row, width=1, fg_color=DIVIDER).pack(side="left", fill="y", pady=8)
-                ctk.CTkLabel(row, text=event["title"], font=FONT_BODY,
-                             text_color=TEXT_SECONDARY).pack(side="left", padx=16)
+                d = event["start"].date()
+                eventsByDay.setdefault(d, []).append(event)
+
+            for day in sorted(eventsByDay.keys()):
+                if day == today:
+                    dayLabel = "Today"
+                elif day == today + timedelta(days=1):
+                    dayLabel = "Tomorrow"
+                else:
+                    dayLabel = day.strftime("%A, %b %d")
+
+                # day header row
+                headerRow = ctk.CTkFrame(self.contentFrame, fg_color=ACCENT_DIM, corner_radius=8)
+                headerRow.pack(fill="x", padx=20, pady=(12, 4))
+                ctk.CTkLabel(headerRow, text=dayLabel, font=FONT_HEADING,
+                            text_color=TEXT_PRIMARY).pack(side="left", padx=14, pady=6)
+                ctk.CTkLabel(headerRow, text=day.strftime("%B %d, %Y"), font=FONT_SMALL,
+                            text_color=TEXT_SECONDARY).pack(side="right", padx=14)
+
+                # events for this day
+                for event in eventsByDay[day]:
+                    timeStr = event["start"].strftime("%I:%M %p") + "  →  " + event["end"].strftime("%I:%M %p")
+                    row = ctk.CTkFrame(self.contentFrame, fg_color="#0d1f3c", corner_radius=10)
+                    row.pack(fill="x", padx=20, pady=3)
+                    ctk.CTkLabel(row, text=timeStr, font=FONT_MONO,
+                                text_color=SOFT_TEXT, width=100).pack(side="left", padx=16, pady=10)
+                    ctk.CTkFrame(row, width=3, height=1, fg_color=DIVIDER, corner_radius=0).pack(side="left", fill="y", pady=8)
+                    ctk.CTkLabel(row, text=event["title"], font=FONT_BODY,
+                                text_color=TEXT_SECONDARY).pack(side="left", padx=16)
 
         if self.timeline:
             self._sectionLabel("Scheduled Tasks")
@@ -283,21 +336,28 @@ class App(ctk.CTk):
                              "Click '+ Add Task' in the top bar to add your first task.")
             return
         for task in self.tasks:
-            self.addTaskCard(task.n, task.duration, task.importance, task.type, task.deadline)
+            self.addTaskCard(task)
 
-    def addTaskCard(self, name, duration, importance, deadType, deadline):
+    def addTaskCard(self, task):
+        name = task.n
+        duration = task.duration
+        importance = task.importance
+        deadType = task.type
+        deadline = task.deadline
+
         wrapper = ctk.CTkFrame(self.contentFrame, fg_color="transparent")
         wrapper.pack(fill="x", padx=20, pady=4)
 
-        card = ctk.CTkFrame(wrapper, fg_color=BG_CARD, corner_radius=12)
+        card = ctk.CTkFrame(wrapper, fg_color=BG_CARD, corner_radius=12, height=72)
         card.pack(fill="x")
+        card.pack_propagate(False)
 
         accentColor = HARD_TEXT if deadType == "hard" else ACCENT
         ctk.CTkFrame(card, width=4, fg_color=accentColor,
-                     corner_radius=2).pack(side="left", fill="y")
+                    corner_radius=2).pack(side="left", fill="y")
 
         inner = ctk.CTkFrame(card, fg_color="transparent")
-        inner.pack(side="left", fill="both", expand=True, padx=12, pady=12)
+        inner.pack(side="left", fill="x", expand=True, padx=12, pady=12)
 
         topRow = ctk.CTkFrame(inner, fg_color="transparent")
         topRow.pack(fill="x")
@@ -320,6 +380,13 @@ class App(ctk.CTk):
         detailsFrame = ctk.CTkFrame(wrapper, fg_color="#1a2235", corner_radius=12)
         expanded = [False]
 
+        self.deleteBtn = ctk.CTkButton(detailsFrame, text="Delete Task", 
+                                width=10, height=30, font=FONT_SMALL, 
+                                corner_radius=8, fg_color="transparent", 
+                                border_width=1, border_color=ACCENT, 
+                                hover_color=ACCENT_DIM, text_color=DANGER, command=lambda: self.deleteTask(task))
+        self.deleteBtn.pack(anchor="w", padx=(10, 30))
+
         deadlineStr = deadline.strftime("%b %d, %Y  %I:%M %p") if deadline else "No deadline"
         for label, value in [("Deadline", deadlineStr), ("Duration", f"{duration} minutes"),
                               ("Importance", f"{importance} / 10"), ("Type", deadType)]:
@@ -341,6 +408,10 @@ class App(ctk.CTk):
         for widget in [card, inner, topRow, nameLabel, metaLabel, badge]:
             widget.bind("<Button-1>", toggleDetails)
 
+
+
+        
+
     # ─── SETTINGS VIEW ───────────────────────────────────────────
     def displaySettings(self):
         self._sectionLabel("Schedule Weights")
@@ -355,10 +426,50 @@ class App(ctk.CTk):
         self._settingEntry("Day end time  (HH:MM)", self.dayEnd)
         self._sectionLabel("Scheduling Options")
         self._settingDropdown("Slot size (minutes)", self.slotSize, ["15", "30", "60"])
-        self._settingSlider("Days to schedule ahead",
-                            "How many days forward the scheduler plans",
-                            self.numDays, 1, 14, steps=13, isInt=True)
+        self._settingNumberEntry("Days to schedule ahead",
+                          "How many days forward the scheduler plans",
+                          self.numDays, minVal=1, maxVal=30)
+        # self._settingSlider("Days to schedule ahead",
+        #                     "How many days forward the scheduler plans",
+        #                     self.numDays, 1, 14, steps=13, isInt=True)
 
+
+    def _settingNumberEntry(self, title, subtitle, variable, minVal=1, maxVal=99, suffix="days"):
+        frame = ctk.CTkFrame(self.contentFrame, fg_color=BG_CARD, corner_radius=12)
+        frame.pack(fill="x", padx=20, pady=6)
+
+        ctk.CTkLabel(frame, text=title, font=FONT_BODY,
+                    text_color=TEXT_PRIMARY).pack(anchor="w", padx=16, pady=(14, 2))
+        ctk.CTkLabel(frame, text=subtitle, font=FONT_SMALL,
+                    text_color=TEXT_MUTED).pack(anchor="w", padx=16)
+
+        entryRow = ctk.CTkFrame(frame, fg_color="transparent")
+        entryRow.pack(fill="x", padx=16, pady=(8, 4))
+
+        entry = ctk.CTkEntry(entryRow, width=70, font=FONT_BODY,
+                            fg_color=BG_MAIN, border_color=DIVIDER,
+                            text_color=TEXT_PRIMARY, justify="center")
+        entry.insert(0, str(variable.get()))
+        entry.pack(side="left")
+
+        ctk.CTkLabel(entryRow, text=suffix, font=FONT_SMALL,
+                    text_color=TEXT_SECONDARY).pack(side="left", padx=(8, 0))
+
+        errorLabel = ctk.CTkLabel(frame, text="", font=FONT_SMALL, text_color=DANGER)
+        errorLabel.pack(anchor="w", padx=16, pady=(0, 14))
+
+        def commitValue(event=None):
+            text = entry.get().strip()
+            if text.isdigit() and minVal <= int(text) <= maxVal:
+                variable.set(int(text))
+                errorLabel.configure(text="")
+            else:
+                errorLabel.configure(text=f"Enter a whole number from {minVal}–{maxVal}")
+                entry.delete(0, "end")
+                entry.insert(0, str(variable.get()))
+
+        entry.bind("<Return>", commitValue)
+        entry.bind("<FocusOut>", commitValue)
     def _settingSlider(self, title, subtitle, variable, fromVal, toVal, steps=100, isInt=False):
         frame = ctk.CTkFrame(self.contentFrame, fg_color=BG_CARD, corner_radius=12)
         frame.pack(fill="x", padx=20, pady=6)
@@ -408,7 +519,7 @@ class App(ctk.CTk):
         popup.after(100, popup.lift)
 
         ctk.CTkLabel(popup, text="New Task", font=FONT_TITLE,
-                     text_color=TEXT_PRIMARY).pack(pady=(24, 4), padx=24, anchor="w")
+                     text_color=TEXT_PRIMARY).pack(pady=(24, 0), padx=24, anchor="w")
         ctk.CTkFrame(popup, height=1, fg_color=DIVIDER).pack(fill="x", padx=24, pady=(0, 16))
 
         def field(label, placeholder):
@@ -462,12 +573,19 @@ class App(ctk.CTk):
             deadline = datetime.now() + timedelta(days=int(daysAway)) if daysAway else None
             newTask  = Task(name, int(duration), int(imp), deadType, deadline=deadline)
             self.tasks.append(newTask)
-            self.addTaskCard(name, int(duration), int(imp), deadType, deadline)
+            self.addTaskCard(newTask)
             popup.destroy()
 
         ctk.CTkButton(popup, text="Add Task", command=confirm, height=40,
                       fg_color=ACCENT, hover_color="#3a7de8",
-                      font=FONT_BODY, corner_radius=10).pack(fill="x", padx=24, pady=16)
+                      font=FONT_BODY, corner_radius=10).pack(fill="x", padx=16, pady=(0, 20))
+
+    # ─── Delete Task ─────────────────────────────────────
+    def deleteTask(self, target):
+        from task import Task
+        if target in self.tasks:
+            self.tasks.remove(target)
+            # self.refreshCalendar
 
     # ─── SCHEDULE GENERATION ─────────────────────────────────────
     def generateSchedule(self):
@@ -479,6 +597,8 @@ class App(ctk.CTk):
 
         startParts = self.dayStart.get().split(":")
         endParts   = self.dayEnd.get().split(":")
+        
+        #This is where to implement blackouts and Reccurring Breaks\/
 
         s = Schedule(
             tasks=self.tasks,
@@ -497,6 +617,9 @@ class App(ctk.CTk):
         if not self.timeline:
             return
         pushEvents(self.calService, self.timeline)
+        
+
+
 
     # ─── HELPERS ─────────────────────────────────────────────────
     def isFirstSlot(self, slot):

@@ -26,8 +26,8 @@ def getService():
 
     return build("calendar", "v3", credentials=creds)
 
-
-def getEvents(service, daysAhead=1):
+#Check this one, might be reason for not viewing events far enough ahead
+def getEvents(service, daysAhead):
     now = datetime.utcnow().isoformat() + "Z"
     end = (datetime.utcnow() + timedelta(days=daysAhead)).isoformat() + "Z"
 
@@ -51,7 +51,7 @@ def getEvents(service, daysAhead=1):
             })
     return events
 
-
+#This might be the problem with pushing: Start = slot[0] might have to be start = timeline[0]
 def pushEvents(service, timeline):
     already_pushed = set()
 
