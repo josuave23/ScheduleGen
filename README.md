@@ -5,7 +5,7 @@ A passion project I am working on to help people manage their time better.
 
 Note: Version 1.0.0 is identical to my public submission for the BeachHacks 9.0 hackathon, which is public on my page. This is the repo in which I will continue development on this project
 
-## Current Version: 1.0.0
+## Current Version: 1.5.0
 
 ## Setup
 After download, ensure that main.py, schedule.py. task.py, gcal.py, and ui.py are all in the same folder
@@ -19,8 +19,8 @@ Then, follow these steps:
 6. Run `pip install -r requirements.txt`
 7. Run `python main.py` — a browser window will open to authenticate
 
-## To Implement:
-- Implement a calandar program for this to run on
-- UI changes for an easier user experience
+## Roadmap:
+- Create a calendar/personal scheduler to make this more useful
 - Implement an easy way to manually block out timeslots for breaks
 - Add Canvas API
+- Test various UI versions
